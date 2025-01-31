@@ -1,0 +1,201 @@
+/* src/App.css */
+
+@import "leaflet/dist/leaflet.css";
+
+
+body {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+.App {
+  text-align: center;
+  background-color: #121212;
+  color: #ffffff;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+}
+
+h1 {
+  margin: 20px 0;
+  color: #00d1ff;
+}
+
+.log {
+  margin-bottom: 10px;
+  color: #ff5555;
+}
+
+.leaflet-container {
+  width: 100%;
+  height: 100%;
+}
+
+
+.viewer-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.viewer-container.blurred {
+  filter: blur(4px);
+  pointer-events: none;
+}
+
+.loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(18, 18, 18, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  z-index: 10;
+  font-size: 1.5rem;
+}
+html, body, #root, .App {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+.map-container {
+  width: 100%;
+  height: calc(100vh - 200px);
+  background-color: #f0f0f0;
+}
+
+.cluster-marker {
+  background-color: rgba(51, 136, 255, 0.6);
+  border: 2px solid #3388ff;
+  border-radius: 50%;
+  color: white;
+  text-align: center;
+  font-weight: bold;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.cluster-marker.small {
+  width: 30px;
+  height: 30px;
+  font-size: 12px;
+}
+
+.cluster-marker.medium {
+  width: 40px;
+  height: 40px;
+  font-size: 14px;
+}
+
+.cluster-marker.large {
+  width: 50px;
+  height: 50px;
+  font-size: 16px;
+}
+
+.cluster-icon {
+  background: none;
+  border: none;
+}
+
+.popup-content, .marker-popup-content {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.markers-list {
+  margin-top: 10px;
+}
+
+.marker-item {
+  margin-bottom: 10px;
+}
+
+.more-markers, .pagination {
+  margin-top: 10px;
+  text-align: center;
+  color: #555;
+}
+
+.more-markers button, .pagination button, .toggle-button {
+  background-color: #3388ff;
+  color: white;
+  border: none;
+  padding: 5px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-top: 5px;
+}
+
+.more-markers button:hover, .pagination button:hover:not(:disabled), .toggle-button:hover {
+  background-color: #2c6ed5;
+}
+
+.pagination button:disabled {
+  background-color: #a0c4ff;
+  cursor: not-allowed;
+}
+.cluster-marker {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background-color: rgba(51, 136, 255, 0.6);
+  color: white;
+  font-weight: bold;
+}
+
+.cluster-marker.small {
+  width: 30px;
+  height: 30px;
+  font-size: 12px;
+}
+
+.cluster-marker.medium {
+  width: 40px;
+  height: 40px;
+  font-size: 14px;
+}
+
+.cluster-marker.large {
+  width: 50px;
+  height: 50px;
+  font-size: 16px;
+}
+
+.cluster-icon {
+  border: none;
+}
+@media (max-width: 1024px) {
+  .MuiBox-root[style*="width: 300px"] {
+    width: 250px !important;
+  }
+
+  body, .MuiTypography-root {
+    font-size: 0.9rem;
+  }
+
+
+  .MuiBox-root[style*="height: 150px"] {
+    height: 120px !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .MuiBox-root[style*="width: 300px"] {
+    width: 100% !important;
+    position: relative;
+
+  }
+
+}
+

@@ -1,0 +1,5 @@
+/**
+ * LZF compression/decompression module. Ported from the C
+ * implementation of liblzf, specfically lzf_c.c and lzf_d.c
+ * @license BSD-2-Clause
+ */

@@ -98,7 +98,6 @@ function parseGeoJSON(jsonText, fileName, size) {
   };
 }
 
-// ============ parsePCD =============
 function parsePCD(arrayBuffer, fileName, size) {
   console.log('Parsing .pcd file with ArrayBuffer');
 
@@ -260,7 +259,7 @@ function parsePCD_Binary(arrayBuffer, offset, numPoints, fields, sizes, types, c
         } else if (type === 'U' && size === 4 && count === 1) {
           point[fieldName] = dataView.getUint32(byteOffset, true);
         } else {
-          point[fieldName] = null; // 或其他默认值
+          point[fieldName] = null;
         }
       }
       // Skip other fields (e.g., '_')
@@ -304,7 +303,6 @@ function parsePCD_BinaryCompressed_LZF(arrayBuffer, offset, numPoints, fields, s
   return points;
 }
 
-// =========== reorderSoAToAoS_withProgress ===========
 function reorderSoAToAoS_withProgress(decompressed, numPoints, fields, sizes, types) {
   const totalFields = fields.length;
   const pointStep = sizes.reduce((sum, s) => sum + s, 0); // Assuming SoA

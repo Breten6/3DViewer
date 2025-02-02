@@ -17,7 +17,8 @@ import MarkerPopupContent from './MarkerPopupContent';
 import ReactDOM from 'react-dom/client';
 
 import {
-  Box,      
+  Box,
+  Button,
   Checkbox,
   FormControl,
   FormControlLabel,
@@ -27,6 +28,8 @@ import {
   Select,
   MenuItem,
   Chip,
+  Slider,
+  Typography,
 } from '@mui/material';
 
 import iconUrl from 'leaflet/dist/images/marker-icon.png';
@@ -39,7 +42,6 @@ L.Icon.Default.mergeOptions({
   iconUrl,
   shadowUrl,
 });
-
 
 const createClusterIcon = (count) => {
   let size = 'small';
@@ -54,9 +56,6 @@ const createClusterIcon = (count) => {
     iconSize: [40, 40],
   });
 };
-
-/** Flatten nested objects into "prop1.this" keys.
- *  If we encounter an array, we store it as-is under newKey. */
 function flattenProps(obj, prefix = '') {
   const result = {};
   for (const [k, v] of Object.entries(obj)) {
@@ -64,8 +63,7 @@ function flattenProps(obj, prefix = '') {
     if (Array.isArray(v)) {
       result[newKey] = v;
     } else if (v && typeof v === 'object') {
-      const childFlat = flattenProps(v, newKey);
-      Object.assign(result, childFlat);
+      Object.assign(result, flattenProps(v, newKey));
     } else {
       result[newKey] = v;
     }
@@ -75,60 +73,104 @@ function flattenProps(obj, prefix = '') {
 
 function TimeSeriesMapViewer({
   geoJSONData,
-  currentTime = Number.MAX_SAFE_INTEGER,
   selectedTags = [],
 }) {
-  console.log('TimeSeriesMapViewer props:', { geoJSONData, currentTime, selectedTags });
+  console.log('TimeSeriesMapViewer props:', { geoJSONData, selectedTags });
 
   const mapRef = useRef();
-  const layerRegistry = useRef(new Map()); 
+  const layerRegistry = useRef(new Map());
 
-  // 1. Extract features
+  // 1. Extract original features
   const features = useMemo(() => {
     if (geoJSONData?.data?.features) {
       return geoJSONData.data.features;
     }
     return [];
   }, [geoJSONData]);
+
   const prevFeaturesCountRef = useRef(features.length);
 
-  // 2. Time & tag filtering
-  const filteredFeatures = useMemo(() => {
-    return features.filter((f) => {
-      // time filter
+  // 1.1 给每个 feature 提前扁平化一次，避免后续反复 flattenProps
+  const flattenedFeatures = useMemo(() => {
+    return features.map((f) => ({
+      ...f,
+      _flatProps: flattenProps(f.properties || {}),
+    }));
+  }, [features]);
+
+  // a) sortedTimePoints
+  const sortedTimePoints = useMemo(() => {
+    const timeSet = new Set();
+    features.forEach((f) => {
       const ft = f.properties?.time;
-      if (ft != null) {
-        const ftNum = typeof ft === 'string' ? new Date(ft).getTime() : ft;
-        if (ftNum > currentTime) return false;
+      if (ft) {
+        const val = typeof ft === 'string' ? new Date(ft).getTime() : ft;
+        timeSet.add(val);
       }
-      // tag filter
-      if (selectedTags.length > 0) {
-        const t = f.properties?.tags;
-        if (t) {
-          const arr = Array.isArray(t) ? t : [t];
-          return arr.some((tag) => selectedTags.includes(tag));
-        }
-      }
-      return true;
     });
-  }, [features, currentTime, selectedTags]);
+    return Array.from(timeSet).sort((a, b) => a - b);
+  }, [features]);
+
+  // b) state: currentTime, isPlaying
+  const [currentTime, setCurrentTime] = useState(
+    sortedTimePoints.length > 0 ? sortedTimePoints[sortedTimePoints.length - 1] : 0
+  );
+  const [isPlaying, setIsPlaying] = useState(false);
+  const intervalRef = useRef(null);
 
   useEffect(() => {
-    console.log(
-      `Total features: ${features.length}, filtered: ${filteredFeatures.length}`
-    );
-  }, [features, filteredFeatures]);
+    if (sortedTimePoints.length > 0) {
+      const last = sortedTimePoints[sortedTimePoints.length - 1];
+      setCurrentTime(last);
+    }
+  }, [sortedTimePoints]);
 
-  // 3. Geometry type filtering 
+  useEffect(() => {
+    if (isPlaying) {
+      console.log('Start playing time series');
+      const id = setInterval(() => {
+        const nextT = sortedTimePoints.find((t) => t > currentTime);
+        if (nextT) {
+          console.log(`Played => ${new Date(nextT).toLocaleString()}`);
+          setCurrentTime(nextT);
+        } else {
+          console.log('Time series ended');
+          setIsPlaying(false);
+        }
+      }, 1000);
+      intervalRef.current = id;
+      return () => clearInterval(id);
+    } else {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+        console.log('Paused');
+      }
+    }
+  }, [isPlaying, currentTime, sortedTimePoints]);
+
+  const handlePlayPause = () => {
+    if (isPlaying) {
+      setIsPlaying(false);
+    } else {
+      if (
+        sortedTimePoints.length > 0 &&
+        currentTime === sortedTimePoints[sortedTimePoints.length - 1]
+      ) {
+        setCurrentTime(sortedTimePoints[0]);
+      }
+      setIsPlaying(true);
+    }
+  };
+
+  // 2. geometry filter
   const [geometryFilter, setGeometryFilter] = useState([]);
   const allGeomTypes = useMemo(() => {
-    const setOfTypes = new Set();
+    const st = new Set();
     features.forEach((f) => {
-      if (f.geometry?.type) {
-        setOfTypes.add(f.geometry.type);
-      }
+      if (f.geometry?.type) st.add(f.geometry.type);
     });
-    return Array.from(setOfTypes);
+    return Array.from(st);
   }, [features]);
 
   useEffect(() => {
@@ -139,13 +181,12 @@ function TimeSeriesMapViewer({
     setGeometryFilter((prev) => {
       if (prev.includes(type)) {
         return prev.filter((t) => t !== type);
-      } else {
-        return [...prev, type];
       }
+      return [...prev, type];
     });
   };
 
-  // 4. Multi-Key property filtering
+  // 3. property filter
   const [propertyFilters, setPropertyFilters] = useState({});
   const [activeKey, setActiveKey] = useState('');
   const [activeValues, setActiveValues] = useState([]);
@@ -160,44 +201,41 @@ function TimeSeriesMapViewer({
 
   const allPropertyValuesMap = useMemo(() => {
     const map = {};
-    features.forEach((f) => {
-      const flatProps = flattenProps(f.properties || {});
-      Object.entries(flatProps).forEach(([k, v]) => {
-        if (!map[k]) {
-          map[k] = new Set();
-        }
+    flattenedFeatures.forEach((f) => {
+      const flt = f._flatProps;
+      for (const [k, v] of Object.entries(flt)) {
+        if (!map[k]) map[k] = new Set();
         if (Array.isArray(v)) {
-          v.forEach((item) => {
-            map[k].add(item);
-          });
+          v.forEach((it) => map[k].add(it));
         } else {
           map[k].add(v);
         }
-      });
+      }
     });
+    const obj = {};
     for (const k in map) {
-      map[k] = Array.from(map[k]);
+      obj[k] = Array.from(map[k]);
     }
-    return map;
-  }, [features]);
+    return obj;
+  }, [flattenedFeatures]);
 
   const handleToggleValue = (val) => {
     if (!activeKey) return;
     setActiveValues((prev) => {
       let newArr;
       if (prev.includes(val)) {
-        newArr = prev.filter((v) => v !== val);
+        newArr = prev.filter((x) => x !== val);
       } else {
         newArr = [...prev, val];
       }
-      setPropertyFilters((oldPF) => {
-        const clone = { ...oldPF };
+      setPropertyFilters((old) => {
+        const copy = { ...old };
         if (newArr.length === 0) {
-          delete clone[activeKey];
+          delete copy[activeKey];
         } else {
-          clone[activeKey] = newArr;
+          copy[activeKey] = newArr;
         }
-        return clone;
+        return copy;
       });
       return newArr;
     });
@@ -208,14 +246,14 @@ function TimeSeriesMapViewer({
     const allVals = allPropertyValuesMap[activeKey] || [];
     const newArr = checked ? allVals : [];
     setActiveValues(newArr);
-    setPropertyFilters((oldPF) => {
-      const clone = { ...oldPF };
+    setPropertyFilters((old) => {
+      const copy = { ...old };
       if (newArr.length === 0) {
-        delete clone[activeKey];
+        delete copy[activeKey];
       } else {
-        clone[activeKey] = newArr;
+        copy[activeKey] = newArr;
       }
-      return clone;
+      return copy;
     });
   };
 
@@ -225,7 +263,7 @@ function TimeSeriesMapViewer({
 
   useEffect(() => {
     if (features.length !== prevFeaturesCountRef.current) {
-      console.log('Detected feature count change => resetting all property filters');
+      console.log('Detected feature count change => reset property filters');
       setPropertyFilters({});
       setActiveKey('');
       setActiveValues([]);
@@ -233,40 +271,48 @@ function TimeSeriesMapViewer({
     prevFeaturesCountRef.current = features.length;
   }, [features]);
 
-  // 5. Final filtering
-  const geometryFilteredFeatures = useMemo(() => {
-    if (!geometryFilter || geometryFilter.length === 0) {
-      return [];
-    }
-    return filteredFeatures.filter((f) => geometryFilter.includes(f.geometry?.type));
-  }, [filteredFeatures, geometryFilter]);
-
-  const propertyFilteredFeatures = useMemo(() => {
-    let result = geometryFilteredFeatures;
-    for (const [k, vals] of Object.entries(propertyFilters)) {
-      if (!vals || vals.length === 0) continue;
-      result = result.filter((f) => {
-        const flatProps = flattenProps(f.properties || {});
-        const propVal = flatProps[k];
-        if (Array.isArray(propVal)) {
-          return propVal.some((item) => vals.includes(item));
-        } else {
-          return vals.includes(propVal);
+  const finalFilteredFeatures = useMemo(() => {
+    return flattenedFeatures.filter((f) => {
+      // (tag) filter
+      if (selectedTags.length > 0) {
+        const tags = f.properties?.tags;
+        if (tags) {
+          const arr = Array.isArray(tags) ? tags : [tags];
+          if (!arr.some((tg) => selectedTags.includes(tg))) {
+            return false;
+          }
         }
-      });
-    }
-    return result;
-  }, [geometryFilteredFeatures, propertyFilters]);
+      }
+      // geometry filter
+      if (geometryFilter.length > 0 && !geometryFilter.includes(f.geometry?.type)) {
+        return false;
+      }
+      // property filter
+      for (const [k, vals] of Object.entries(propertyFilters)) {
+        if (!vals || vals.length === 0) continue;
+        const propVal = f._flatProps[k];
+        if (Array.isArray(propVal)) {
+          if (!propVal.some((item) => vals.includes(item))) {
+            return false;
+          }
+        } else {
+          if (!vals.includes(propVal)) {
+            return false;
+          }
+        }
+      }
+      // time filter
+      const ft = f.properties?.time;
+      if (ft) {
+        const val = typeof ft === 'string' ? new Date(ft).getTime() : ft;
+        if (val > currentTime) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [flattenedFeatures, selectedTags, geometryFilter, propertyFilters, currentTime]);
 
-  const finalFilteredFeatures = propertyFilteredFeatures;
-
-  useEffect(() => {
-    console.log(
-      `Features after second filtering (geometry + multiKey): ${finalFilteredFeatures.length}`
-    );
-  }, [finalFilteredFeatures]);
-
-  // 6. Split into pointFeatures / otherFeatures
   const pointFeatures = useMemo(() => {
     return finalFilteredFeatures.filter(
       (f) => f.geometry?.type === 'Point' || f.geometry?.type === 'MultiPoint'
@@ -279,52 +325,41 @@ function TimeSeriesMapViewer({
     );
   }, [finalFilteredFeatures]);
 
-  // 7. Supercluster 
+  // supercluster & map rendering
   const [clusters, setClusters] = useState([]);
   const [bounds, setBounds] = useState(null);
   const [zoom, setZoom] = useState(5);
 
-  const supercluster = useMemo(() => {
-    return new Supercluster({
-      radius: 75,
-      maxZoom: 20,
-    }).load(
-      pointFeatures.map((feature) => ({
+  const superclusterInstance = useMemo(() => {
+    return new Supercluster({ radius: 75, maxZoom: 20 }).load(
+      pointFeatures.map((f) => ({
         type: 'Feature',
-        properties: {
-          cluster: false,
-          ...feature.properties,
-        },
-        geometry: {
-          type: 'Point',
-          coordinates: feature.geometry.coordinates,
-        },
+        properties: { cluster: false, ...f.properties },
+        geometry: { type: 'Point', coordinates: f.geometry.coordinates },
       }))
     );
   }, [pointFeatures]);
 
   const MapEvents = () => {
     useMapEvent('moveend', (e) => {
-      const map = e.target;
-      const b = map.getBounds();
+      const m = e.target;
+      const b = m.getBounds();
       setBounds([b.getWest(), b.getSouth(), b.getEast(), b.getNorth()]);
-      setZoom(map.getZoom());
+      setZoom(m.getZoom());
     });
     return null;
   };
 
   useEffect(() => {
     if (bounds) {
-      const c = supercluster.getClusters(bounds, zoom);
+      const c = superclusterInstance.getClusters(bounds, zoom);
       setClusters(c);
-      console.log(`Clusters at zoom ${zoom}`, c);
+      console.log(`Clusters@zoom=${zoom}`, c);
     }
-  }, [supercluster, bounds, zoom]);
+  }, [superclusterInstance, bounds, zoom]);
 
-  // 8. Bind popup for lines/polygons
   useEffect(() => {
     if (!mapRef.current) return;
-
     layerRegistry.current.forEach((cleanup, layer) => {
       cleanup();
       layer.remove();
@@ -338,20 +373,17 @@ function TimeSeriesMapViewer({
       onEachFeature: (feature, layer) => {
         const container = L.DomUtil.create('div');
         const root = ReactDOM.createRoot(container);
-
         root.render(
           <MarkerPopupContent
             key={`${feature.id || Date.now()}-${Math.random()}`}
             properties={feature.properties || {}}
           />
         );
-
         const popup = L.popup({
           autoClose: true,
           closeOnClick: true,
           className: 'isolated-popup',
         }).setContent(container);
-
         layer.bindPopup(popup);
 
         const cleanup = () => {
@@ -370,23 +402,20 @@ function TimeSeriesMapViewer({
     };
   }, [otherFeatures]);
 
-  // 9. Render clusters and single markers
   const renderMarkers = () => {
-    return clusters.map((cluster) => {
-      const [lng, lat] = cluster.geometry.coordinates;
-      const { cluster: isCluster, point_count } = cluster.properties;
-
+    return clusters.map((c) => {
+      const [lng, lat] = c.geometry.coordinates;
+      const { cluster: isCluster, point_count } = c.properties;
       if (isCluster) {
-        // This is a cluster
         let leaves = [];
         try {
-          leaves = supercluster.getLeaves(cluster.properties.cluster_id, 1000, 0);
-        } catch (e) {
-          console.error('Error getting cluster leaves', e);
+          leaves = superclusterInstance.getLeaves(c.properties.cluster_id, 1000, 0);
+        } catch (err) {
+          console.error('Err getLeaves', err);
         }
         return (
           <Marker
-            key={`cluster-${cluster.properties.cluster_id}`}
+            key={`cluster-${c.properties.cluster_id}`}
             position={[lat, lng]}
             icon={createClusterIcon(point_count)}
           >
@@ -401,15 +430,14 @@ function TimeSeriesMapViewer({
           </Marker>
         );
       } else {
-        // Single point
         return (
           <Marker
-            key={`marker-${lng}-${lat}-${cluster.properties.name || 'unknown'}`}
+            key={`marker-${lng}-${lat}-${c.properties.name || 'unknown'}`}
             position={[lat, lng]}
           >
             <Popup>
               <MarkerPopupContent
-                properties={cluster.properties}
+                properties={c.properties}
                 coords={[lat, lng]}
                 hideCoordinate={false}
               />
@@ -420,11 +448,13 @@ function TimeSeriesMapViewer({
     });
   };
 
-  // 10. FitBounds
-  const filteredGeoJSON = useMemo(() => ({
-    type: 'FeatureCollection',
-    features: finalFilteredFeatures,
-  }), [finalFilteredFeatures]);
+  const filteredGeoJSON = useMemo(
+    () => ({
+      type: 'FeatureCollection',
+      features: finalFilteredFeatures,
+    }),
+    [finalFilteredFeatures]
+  );
 
   const noData = features.length === 0;
 
@@ -435,7 +465,58 @@ function TimeSeriesMapViewer({
     };
   }, []);
 
-  // Render property filter chips
+  const applyGeometryAndPropertyFilters = (baseArr, geomFilter, propFilter) => {
+    if (!geomFilter || geomFilter.length === 0) return [];
+    return baseArr.filter((f) => {
+      if (selectedTags.length > 0) {
+        const tags = f.properties?.tags;
+        if (tags) {
+          const arr = Array.isArray(tags) ? tags : [tags];
+          if (!arr.some((tg) => selectedTags.includes(tg))) {
+            return false;
+          }
+        }
+      }
+      // geometry
+      if (!geomFilter.includes(f.geometry?.type)) {
+        return false;
+      }
+      // property
+      for (const [k, vals] of Object.entries(propFilter)) {
+        if (!vals || vals.length === 0) continue;
+        const propVal = f._flatProps[k];
+        if (Array.isArray(propVal)) {
+          if (!propVal.some((x) => vals.includes(x))) {
+            return false;
+          }
+        } else {
+          if (!vals.includes(propVal)) {
+            return false;
+          }
+        }
+      }
+      return true;
+    });
+  };
+
+  const isGeomTypeDisabled = (type) => {
+    const newGeomFilter = geometryFilter.includes(type)
+      ? geometryFilter
+      : [...geometryFilter, type];
+    const testArr = applyGeometryAndPropertyFilters(flattenedFeatures, newGeomFilter, propertyFilters);
+    return testArr.length === 0;
+  };
+
+  const isPropValueDisabled = (key, val) => {
+    const newPF = { ...propertyFilters };
+    const oldVals = newPF[key] || [];
+    if (!oldVals.includes(val)) {
+      newPF[key] = [...oldVals, val];
+    }
+    const testArr = applyGeometryAndPropertyFilters(flattenedFeatures, geometryFilter, newPF);
+    return testArr.length === 0;
+  };
+
   const renderFilterChips = () => {
     return Object.entries(propertyFilters).map(([k, vals]) => {
       const joined = vals.join(',');
@@ -466,20 +547,31 @@ function TimeSeriesMapViewer({
   return (
     <div style={{ width: '100%', height: '100%', position: 'relative' }}>
       {noData ? (
-        <div style={{ width: '100%', height: '100%', background: '#fafafa' }}>
-          <p style={{ textAlign: 'center' }}>No valid GeoJSON data</p>
+        <div
+          style={{
+            width: '100%',
+            height: '100%',
+            background: '#fafafa',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Typography style={{ textAlign: 'center', fontFamily: 'Arial' }}>
+            No valid GeoJSON data
+          </Typography>
         </div>
       ) : (
         <MapContainer
           center={[39.9, 116.4]}
           zoom={5}
+          style={{ width: '100%', height: '100%' }}
+          zoomControl={false}
           ref={(m) => {
             mapRef.current = m;
           }}
-          style={{ width: '100%', height: '100%' }}
-          zoomControl={false}
         >
-          <ZoomControl position="topright" />
+          <ZoomControl position="bottomright" />
           <TileLayer
             attribution="&copy; OpenStreetMap contributors"
             crossOrigin="anonymous"
@@ -491,106 +583,165 @@ function TimeSeriesMapViewer({
         </MapContainer>
       )}
 
-      <Box
-        sx={{
-          position: 'absolute',
-          top: 10,
-          left: 10,
-          width: 230,
-          maxHeight: 480,
-          overflow: 'auto',
-          backgroundColor: 'rgba(255,255,255,0.9)',
-          p: 2,
-          borderRadius: 2,
-          zIndex: 999,
-        }}
-      >
-        <Box sx={{ mb: 2, display: 'flex', flexWrap: 'wrap' }}>
-          {renderFilterChips()}
-        </Box>
+      {!noData && (
+        <Box
+          sx={{
+            position: 'absolute',
+            top: 10,
+            left: 10,
+            width: 230,
+            maxHeight: 480,
+            overflow: 'auto',
+            backgroundColor: 'rgba(255,255,255,0.9)',
+            p: 2,
+            borderRadius: 2,
+            zIndex: 999,
+          }}
+        >
+          <Box sx={{ mb: 2, display: 'flex', flexWrap: 'wrap' }}>
+            {renderFilterChips()}
+          </Box>
 
-        {/* Geometry type filtering */}
-        <FormControl component="fieldset" variant="standard" sx={{ mb: 2 }}>
-          <FormLabel component="legend" sx={{ fontSize: '0.9rem' }}>
-            Geometry Types
-          </FormLabel>
-          <FormGroup>
-            {allGeomTypes.map((type) => (
-              <FormControlLabel
-                key={type}
-                control={
-                  <Checkbox
-                    checked={geometryFilter.includes(type)}
-                    onChange={() => handleToggleGeomType(type)}
-                  />
-                }
-                label={type}
-              />
-            ))}
-          </FormGroup>
-        </FormControl>
-
-        {/* Select property key */}
-        <FormControl fullWidth sx={{ mb: 2 }}>
-          <InputLabel id="select-property-key-label">Property Key</InputLabel>
-          <Select
-            labelId="select-property-key-label"
-            label="Property Key"
-            value={activeKey}
-            onChange={handleSelectKey}
-            MenuProps={{
-              PaperProps: { style: { zIndex: 10000 } },
-              disablePortal: false,
-            }}
-          >
-            <MenuItem value="">(none)</MenuItem>
-            {Object.keys(allPropertyValuesMap).map((k) => (
-              <MenuItem key={k} value={k}>
-                {k}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-
-        {/* Display values for the chosen key */}
-        {activeKey && allPropertyValuesMap[activeKey] && (
-          <FormControl component="fieldset" variant="standard">
+          <FormControl component="fieldset" variant="standard" sx={{ mb: 2 }}>
             <FormLabel component="legend" sx={{ fontSize: '0.9rem' }}>
-              {`Values for [${activeKey}]`}
+              Geometry Types
             </FormLabel>
             <FormGroup>
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={
-                      activeValues.length > 0 &&
-                      activeValues.length === allPropertyValuesMap[activeKey].length
+              {allGeomTypes.map((type) => {
+                const disabled = isGeomTypeDisabled(type);
+                return (
+                  <FormControlLabel
+                    key={type}
+                    control={
+                      <Checkbox
+                        checked={geometryFilter.includes(type)}
+                        onChange={() => handleToggleGeomType(type)}
+                        disabled={disabled}
+                      />
                     }
-                    indeterminate={
-                      activeValues.length > 0 &&
-                      activeValues.length < allPropertyValuesMap[activeKey].length
-                    }
-                    onChange={(e) => handleSelectAllValues(e.target.checked)}
+                    label={type}
                   />
-                }
-                label="(Select All)"
-              />
-              {allPropertyValuesMap[activeKey].map((val) => (
-                <FormControlLabel
-                  key={String(val)}
-                  control={
-                    <Checkbox
-                      checked={activeValues.includes(val)}
-                      onChange={() => handleToggleValue(val)}
-                    />
-                  }
-                  label={String(val)}
-                />
-              ))}
+                );
+              })}
             </FormGroup>
           </FormControl>
-        )}
-      </Box>
+
+          <FormControl fullWidth sx={{ mb: 2 }}>
+            <InputLabel id="select-property-key-label">Property Key</InputLabel>
+            <Select
+              labelId="select-property-key-label"
+              label="Property Key"
+              value={activeKey}
+              onChange={handleSelectKey}
+              MenuProps={{
+                PaperProps: { style: { zIndex: 10000 } },
+                disablePortal: false,
+              }}
+            >
+              <MenuItem value="">(none)</MenuItem>
+              {Object.keys(allPropertyValuesMap).map((k) => (
+                <MenuItem key={k} value={k}>
+                  {k}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          {activeKey && allPropertyValuesMap[activeKey] && (
+            <FormControl component="fieldset" variant="standard">
+              <FormLabel component="legend" sx={{ fontSize: '0.9rem' }}>
+                {`Values for [${activeKey}]`}
+              </FormLabel>
+              <FormGroup>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={
+                        activeValues.length > 0 &&
+                        activeValues.length === allPropertyValuesMap[activeKey].length
+                      }
+                      indeterminate={
+                        activeValues.length > 0 &&
+                        activeValues.length < allPropertyValuesMap[activeKey].length
+                      }
+                      onChange={(e) => handleSelectAllValues(e.target.checked)}
+                    />
+                  }
+                  label="(Select All)"
+                />
+                {allPropertyValuesMap[activeKey].map((val) => {
+                  const disabled = isPropValueDisabled(activeKey, val);
+                  return (
+                    <FormControlLabel
+                      key={String(val)}
+                      control={
+                        <Checkbox
+                          checked={activeValues.includes(val)}
+                          onChange={() => handleToggleValue(val)}
+                          disabled={disabled}
+                        />
+                      }
+                      label={String(val)}
+                    />
+                  );
+                })}
+              </FormGroup>
+            </FormControl>
+          )}
+        </Box>
+      )}
+
+      {sortedTimePoints.length > 0 && (
+        <Box
+          sx={{
+            position: 'absolute',
+            top: 10,
+            right: 10,
+            width: 220,
+            backgroundColor: 'rgba(255,255,255,0.9)',
+            p: 2,
+            borderRadius: 2,
+            zIndex: 999,
+          }}
+        >
+          <Typography variant="h6" gutterBottom>
+            Time-Series
+          </Typography>
+          <Button variant="contained" onClick={handlePlayPause} sx={{ mb: 1 }}>
+            {isPlaying ? 'Pause' : 'Play'}
+          </Button>
+          <Typography variant="body2" sx={{ mb: 1 }}>
+            Current: {new Date(currentTime).toLocaleString()}
+          </Typography>
+
+          <Slider
+            value={currentTime}
+            onChange={(e, val) => {
+              setCurrentTime(val);
+              setIsPlaying(false);
+            }}
+            min={sortedTimePoints[0]}
+            max={sortedTimePoints[sortedTimePoints.length - 1]}
+            step={1000}
+            valueLabelDisplay="auto"
+            marks={sortedTimePoints.map((t) => ({
+              value: t,
+              label: '',
+            }))}
+            sx={{
+              '& .MuiSlider-mark': {
+                backgroundColor: 'white',
+                height: 6,
+                width: 6,
+                borderRadius: '50%',
+              },
+              '& .MuiSlider-markLabel': {
+                display: 'none',
+              },
+            }}
+          />
+        </Box>
+      )}
     </div>
   );
 }

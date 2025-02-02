@@ -7,6 +7,7 @@ import {
   Checkbox,
 } from '@mui/material';
 
+
 const GeometryTypeFilter = ({ geoJSONData, selectedGeometryTypes, setSelectedGeometryTypes, addLog }) => {
   const geometryTypes = useMemo(() => {
     const typeSet = new Set();

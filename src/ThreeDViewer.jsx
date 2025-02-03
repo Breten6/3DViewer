@@ -223,7 +223,7 @@ const ThreeDViewer = forwardRef(
             colors[i * 3 + 1] = c.g;
             colors[i * 3 + 2] = c.b;
           } else {
-            // 默认灰
+            // default
             colors[i * 3 + 0] = 0.8;
             colors[i * 3 + 1] = 0.8;
             colors[i * 3 + 2] = 0.8;

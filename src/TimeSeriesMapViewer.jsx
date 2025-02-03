@@ -36,6 +36,7 @@ import iconUrl from 'leaflet/dist/images/marker-icon.png';
 import iconRetinaUrl from 'leaflet/dist/images/marker-icon-2x.png';
 import shadowUrl from 'leaflet/dist/images/marker-shadow.png';
 
+// Configure Leaflet default icons
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl,
@@ -43,6 +44,7 @@ L.Icon.Default.mergeOptions({
   shadowUrl,
 });
 
+// Create a custom cluster icon
 const createClusterIcon = (count) => {
   let size = 'small';
   if (count >= 100) {
@@ -56,6 +58,8 @@ const createClusterIcon = (count) => {
     iconSize: [40, 40],
   });
 };
+
+// Flatten object properties recursively
 function flattenProps(obj, prefix = '') {
   const result = {};
   for (const [k, v] of Object.entries(obj)) {
@@ -80,7 +84,7 @@ function TimeSeriesMapViewer({
   const mapRef = useRef();
   const layerRegistry = useRef(new Map());
 
-  // 1. Extract original features
+  // 1) Extract main GeoJSON features
   const features = useMemo(() => {
     if (geoJSONData?.data?.features) {
       return geoJSONData.data.features;
@@ -90,7 +94,7 @@ function TimeSeriesMapViewer({
 
   const prevFeaturesCountRef = useRef(features.length);
 
-  // 1.1 给每个 feature 提前扁平化一次，避免后续反复 flattenProps
+  // 1.1) Flatten feature properties in advance
   const flattenedFeatures = useMemo(() => {
     return features.map((f) => ({
       ...f,
@@ -98,7 +102,7 @@ function TimeSeriesMapViewer({
     }));
   }, [features]);
 
-  // a) sortedTimePoints
+  // 2) Gather and sort time values from features
   const sortedTimePoints = useMemo(() => {
     const timeSet = new Set();
     features.forEach((f) => {
@@ -111,13 +115,13 @@ function TimeSeriesMapViewer({
     return Array.from(timeSet).sort((a, b) => a - b);
   }, [features]);
 
-  // b) state: currentTime, isPlaying
   const [currentTime, setCurrentTime] = useState(
     sortedTimePoints.length > 0 ? sortedTimePoints[sortedTimePoints.length - 1] : 0
   );
   const [isPlaying, setIsPlaying] = useState(false);
   const intervalRef = useRef(null);
 
+  // If new data arrives, set currentTime to the last time
   useEffect(() => {
     if (sortedTimePoints.length > 0) {
       const last = sortedTimePoints[sortedTimePoints.length - 1];
@@ -125,6 +129,7 @@ function TimeSeriesMapViewer({
     }
   }, [sortedTimePoints]);
 
+  // Time-series player logic
   useEffect(() => {
     if (isPlaying) {
       console.log('Start playing time series');
@@ -153,6 +158,7 @@ function TimeSeriesMapViewer({
     if (isPlaying) {
       setIsPlaying(false);
     } else {
+      // if we're already at the last time, jump back to the first
       if (
         sortedTimePoints.length > 0 &&
         currentTime === sortedTimePoints[sortedTimePoints.length - 1]
@@ -163,16 +169,19 @@ function TimeSeriesMapViewer({
     }
   };
 
-  // 2. geometry filter
+  // 3) Geometry filter
   const [geometryFilter, setGeometryFilter] = useState([]);
   const allGeomTypes = useMemo(() => {
     const st = new Set();
     features.forEach((f) => {
-      if (f.geometry?.type) st.add(f.geometry.type);
+      if (f.geometry?.type) {
+        st.add(f.geometry.type);
+      }
     });
     return Array.from(st);
   }, [features]);
 
+  // Initialize the geometryFilter to include all geometry types
   useEffect(() => {
     setGeometryFilter(allGeomTypes);
   }, [allGeomTypes]);
@@ -186,7 +195,7 @@ function TimeSeriesMapViewer({
     });
   };
 
-  // 3. property filter
+  // 4) Property filter
   const [propertyFilters, setPropertyFilters] = useState({});
   const [activeKey, setActiveKey] = useState('');
   const [activeValues, setActiveValues] = useState([]);
@@ -199,6 +208,7 @@ function TimeSeriesMapViewer({
     }
   }, [activeKey, propertyFilters]);
 
+  // Collect all unique property values in a map: { key -> Set([...]) }
   const allPropertyValuesMap = useMemo(() => {
     const map = {};
     flattenedFeatures.forEach((f) => {
@@ -219,6 +229,7 @@ function TimeSeriesMapViewer({
     return obj;
   }, [flattenedFeatures]);
 
+  // Toggle a single property value
   const handleToggleValue = (val) => {
     if (!activeKey) return;
     setActiveValues((prev) => {
@@ -241,6 +252,7 @@ function TimeSeriesMapViewer({
     });
   };
 
+  // Select all / unselect all property values
   const handleSelectAllValues = (checked) => {
     if (!activeKey) return;
     const allVals = allPropertyValuesMap[activeKey] || [];
@@ -261,9 +273,10 @@ function TimeSeriesMapViewer({
     setActiveKey(e.target.value);
   };
 
+  // If the feature count changes, reset property filters
   useEffect(() => {
     if (features.length !== prevFeaturesCountRef.current) {
-      console.log('Detected feature count change => reset property filters');
+      console.log('Feature count changed => reset property filters');
       setPropertyFilters({});
       setActiveKey('');
       setActiveValues([]);
@@ -271,9 +284,10 @@ function TimeSeriesMapViewer({
     prevFeaturesCountRef.current = features.length;
   }, [features]);
 
+  // Final filter logic: geometry, property, tag, time
   const finalFilteredFeatures = useMemo(() => {
     return flattenedFeatures.filter((f) => {
-      // (tag) filter
+      // Tag-based filter
       if (selectedTags.length > 0) {
         const tags = f.properties?.tags;
         if (tags) {
@@ -283,11 +297,11 @@ function TimeSeriesMapViewer({
           }
         }
       }
-      // geometry filter
+      // Geometry filter
       if (geometryFilter.length > 0 && !geometryFilter.includes(f.geometry?.type)) {
         return false;
       }
-      // property filter
+      // Property filter
       for (const [k, vals] of Object.entries(propertyFilters)) {
         if (!vals || vals.length === 0) continue;
         const propVal = f._flatProps[k];
@@ -301,7 +315,7 @@ function TimeSeriesMapViewer({
           }
         }
       }
-      // time filter
+      // Time filter
       const ft = f.properties?.time;
       if (ft) {
         const val = typeof ft === 'string' ? new Date(ft).getTime() : ft;
@@ -313,6 +327,7 @@ function TimeSeriesMapViewer({
     });
   }, [flattenedFeatures, selectedTags, geometryFilter, propertyFilters, currentTime]);
 
+  // Separate out point features vs. other geometry
   const pointFeatures = useMemo(() => {
     return finalFilteredFeatures.filter(
       (f) => f.geometry?.type === 'Point' || f.geometry?.type === 'MultiPoint'
@@ -325,7 +340,7 @@ function TimeSeriesMapViewer({
     );
   }, [finalFilteredFeatures]);
 
-  // supercluster & map rendering
+  // Create a supercluster instance for point features
   const [clusters, setClusters] = useState([]);
   const [bounds, setBounds] = useState(null);
   const [zoom, setZoom] = useState(5);
@@ -340,6 +355,7 @@ function TimeSeriesMapViewer({
     );
   }, [pointFeatures]);
 
+  // Listen to "moveend" to update current bounds and zoom
   const MapEvents = () => {
     useMapEvent('moveend', (e) => {
       const m = e.target;
@@ -350,16 +366,19 @@ function TimeSeriesMapViewer({
     return null;
   };
 
+  // Recompute clusters whenever bounds or zoom changes
   useEffect(() => {
     if (bounds) {
       const c = superclusterInstance.getClusters(bounds, zoom);
       setClusters(c);
-      console.log(`Clusters@zoom=${zoom}`, c);
+      console.log(`Clusters @ zoom=${zoom}`, c);
     }
   }, [superclusterInstance, bounds, zoom]);
 
+  // Render any non-point geometry (polygons / lines)
   useEffect(() => {
     if (!mapRef.current) return;
+    // Clear old layers
     layerRegistry.current.forEach((cleanup, layer) => {
       cleanup();
       layer.remove();
@@ -371,6 +390,7 @@ function TimeSeriesMapViewer({
     const layerGroup = L.geoJSON(otherFeatures, {
       style: { color: '#3388ff', weight: 2 },
       onEachFeature: (feature, layer) => {
+        // Create a React root for popup content
         const container = L.DomUtil.create('div');
         const root = ReactDOM.createRoot(container);
         root.render(
@@ -386,6 +406,7 @@ function TimeSeriesMapViewer({
         }).setContent(container);
         layer.bindPopup(popup);
 
+        // Cleanup function so we can remove stuff properly
         const cleanup = () => {
           root.unmount();
           container.remove();
@@ -402,6 +423,7 @@ function TimeSeriesMapViewer({
     };
   }, [otherFeatures]);
 
+  // Render cluster or single marker
   const renderMarkers = () => {
     return clusters.map((c) => {
       const [lng, lat] = c.geometry.coordinates;
@@ -411,7 +433,7 @@ function TimeSeriesMapViewer({
         try {
           leaves = superclusterInstance.getLeaves(c.properties.cluster_id, 1000, 0);
         } catch (err) {
-          console.error('Err getLeaves', err);
+          console.error('Error calling getLeaves:', err);
         }
         return (
           <Marker
@@ -430,6 +452,7 @@ function TimeSeriesMapViewer({
           </Marker>
         );
       } else {
+        // A single marker
         return (
           <Marker
             key={`marker-${lng}-${lat}-${c.properties.name || 'unknown'}`}
@@ -448,6 +471,7 @@ function TimeSeriesMapViewer({
     });
   };
 
+  // Build a final "FeatureCollection" for FitBounds usage
   const filteredGeoJSON = useMemo(
     () => ({
       type: 'FeatureCollection',
@@ -458,6 +482,7 @@ function TimeSeriesMapViewer({
 
   const noData = features.length === 0;
 
+  // Cleanup any leftover layers on unmount
   useEffect(() => {
     return () => {
       layerRegistry.current.forEach((cleanup) => cleanup());
@@ -465,6 +490,7 @@ function TimeSeriesMapViewer({
     };
   }, []);
 
+  // Function to apply geometry + property filters for "disabled" checks
   const applyGeometryAndPropertyFilters = (baseArr, geomFilter, propFilter) => {
     if (!geomFilter || geomFilter.length === 0) return [];
     return baseArr.filter((f) => {
@@ -477,11 +503,9 @@ function TimeSeriesMapViewer({
           }
         }
       }
-      // geometry
       if (!geomFilter.includes(f.geometry?.type)) {
         return false;
       }
-      // property
       for (const [k, vals] of Object.entries(propFilter)) {
         if (!vals || vals.length === 0) continue;
         const propVal = f._flatProps[k];
@@ -499,6 +523,7 @@ function TimeSeriesMapViewer({
     });
   };
 
+  // Check if geometry type is "disabled" (meaning no result if selected)
   const isGeomTypeDisabled = (type) => {
     const newGeomFilter = geometryFilter.includes(type)
       ? geometryFilter
@@ -517,6 +542,7 @@ function TimeSeriesMapViewer({
     return testArr.length === 0;
   };
 
+  // Render property filter chips
   const renderFilterChips = () => {
     return Object.entries(propertyFilters).map(([k, vals]) => {
       const joined = vals.join(',');
@@ -579,6 +605,7 @@ function TimeSeriesMapViewer({
           />
           <MapEvents />
           {clusters.length > 0 && renderMarkers()}
+          {/* FitBounds: will only fit if data is valid, see FitBounds code */}
           <FitBounds geoJSONData={filteredGeoJSON} maxZoom={15} />
         </MapContainer>
       )}
@@ -602,6 +629,7 @@ function TimeSeriesMapViewer({
             {renderFilterChips()}
           </Box>
 
+          {/* Geometry filter */}
           <FormControl component="fieldset" variant="standard" sx={{ mb: 2 }}>
             <FormLabel component="legend" sx={{ fontSize: '0.9rem' }}>
               Geometry Types
@@ -626,6 +654,7 @@ function TimeSeriesMapViewer({
             </FormGroup>
           </FormControl>
 
+          {/* Property key selection */}
           <FormControl fullWidth sx={{ mb: 2 }}>
             <InputLabel id="select-property-key-label">Property Key</InputLabel>
             <Select
@@ -647,10 +676,11 @@ function TimeSeriesMapViewer({
             </Select>
           </FormControl>
 
+          {/* Property values for the selected key */}
           {activeKey && allPropertyValuesMap[activeKey] && (
             <FormControl component="fieldset" variant="standard">
               <FormLabel component="legend" sx={{ fontSize: '0.9rem' }}>
-                {`Values for [${activeKey}]`}
+                Values for [{activeKey}]
               </FormLabel>
               <FormGroup>
                 <FormControlLabel

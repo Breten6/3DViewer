@@ -63,7 +63,7 @@ function App() {
   const [tabValue, setTabValue] = useState(0);
   const handleTabChange = (event, newValue) => {
     setTabValue(newValue);
-    addLog(`switch to ${newValue === 0 ? '3D Viewer' : 'GIS Map'} tab`, 'info');
+    addLog(`Switch tab to: ${newValue === 0 ? '3D Viewer' : 'GIS Map'}`, 'info');
   };
 
   const threeDViewerRef = useRef();
@@ -81,19 +81,19 @@ function App() {
 
   const handleParseResult = useCallback((data) => {
     const ext = data.fileName.slice(data.fileName.lastIndexOf('.')).toLowerCase();
-    const niceSize = formatFileSize(data.size); 
+    const niceSize = formatFileSize(data.size);
 
-    // xyz / pcd => 3D
+    // xyz / pcd => 3D point cloud
     if (data.type === 'xyz' || data.type === 'pcd') {
       const { pointCount, boundingBox, points, invalidLines, fileName } = data;
       if ((pointCount - invalidLines) === 0) {
-        addLog(`File has no valid lines => skipping render`, 'error');
+        addLog(`File has no valid lines => skip`, 'error');
         setSnackbarMessage(`Invalid data lines found: ${invalidLines}, skip rendering`);
         setOpenSnackbar(true);
         return;
       }
       if (pointCount === 0) {
-        addLog('File has 0 valid points => skipping render', 'error');
+        addLog('File has 0 valid points => skip', 'error');
         setSnackbarMessage('File has 0 valid points => skip');
         setOpenSnackbar(true);
         return;
@@ -122,18 +122,18 @@ function App() {
       }));
 
       addLog(
-        `File uploaded: ${pointCount} points。${
-          invalidLines > 0 ? `Ignored ${invalidLines} invalid data` : ''
+        `File uploaded: ${pointCount} points. ${
+          invalidLines > 0 ? `Ignored ${invalidLines} invalid lines` : ''
         }`,
         'info'
       );
-      addLog(`3D point cloud parsed succesfully: ${fileName},points: ${pointCount}`, 'info');
+      addLog(`3D point cloud parsed successfully: ${fileName}, points: ${pointCount}`, 'info');
 
       if (threeDViewerRef.current) {
         threeDViewerRef.current.resetCameraView(boundingBox);
-        addLog(`New file uploaded, reset camera`, 'info');
+        addLog(`Reset 3D camera after new file upload`, 'info');
       }
-    } 
+    }
     // geojson / json => GIS
     else if (data.type === 'geojson') {
       let gisFormat = 'GeoJSON';
@@ -143,7 +143,7 @@ function App() {
 
       setGeoJSONData({
         name: data.fileName,
-        size: niceSize, 
+        size: niceSize,
         data: data.geoJSON,
       });
       setUploadedFiles((prev) => ({
@@ -169,20 +169,21 @@ function App() {
     const fileName = file.name;
     const fileExtension = fileName.slice(fileName.lastIndexOf('.')).toLowerCase();
 
+    // Tab 0 => only accept .xyz, .pcd
     if (tabValue === 0) {
-      // 3D
       if (fileExtension !== '.xyz' && fileExtension !== '.pcd') {
-        setSnackbarMessage('.xyz or .pcd file only in 3D Viewer');
+        setSnackbarMessage('.xyz or .pcd file only for 3D viewer');
         setOpenSnackbar(true);
-        addLog(`Attemped to upload wrong file type: ${fileName}`, 'warning');
+        addLog(`Attempted to upload wrong file type: ${fileName}`, 'warning');
         return;
       }
-    } else if (tabValue === 1) {
-      // GIS
+    } 
+    // Tab 1 => only accept .geojson, .json
+    else if (tabValue === 1) {
       if (fileExtension !== '.geojson' && fileExtension !== '.json') {
-        setSnackbarMessage('.geojson or .json file only in GIS viewer');
+        setSnackbarMessage('.geojson or .json file only for GIS viewer');
         setOpenSnackbar(true);
-        addLog(`Attemped to upload wrong file type: ${fileName}`, 'warning');
+        addLog(`Attempted to upload wrong file type: ${fileName}`, 'warning');
         return;
       }
     }
@@ -211,7 +212,7 @@ function App() {
           file.size
         );
         handleParseResult(result);
-        addLog(`Done uploaded and parsed file: ${fileName}`, 'info');
+        addLog(`Done uploading and parsing: ${fileName}`, 'info');
       } catch (error) {
         console.error('File parsing error:', error);
         setSnackbarMessage(`File parsing failed: ${error}`);
@@ -232,18 +233,19 @@ function App() {
 
   return (
     <>
-      <Box sx={{ display:'flex', flexDirection:'column', height:'100vh' }}>
-        <AppBar position="static">
+      <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
+        <AppBar position="static" sx={{ backgroundColor: 'black' }}>
           <Toolbar>
-            <Typography variant="h6" sx={{ flexGrow:1 }}>
+            <Typography variant="h6" sx={{ flexGrow: 1 }}>
               3D Point Cloud & GIS Map Viewer
             </Typography>
           </Toolbar>
         </AppBar>
 
-        <Box sx={{ display:'flex', flexGrow:1, overflow:'hidden' }}>
-          <Box sx={{ width:300, bgcolor:'#f5f5f5', p:2, overflowY:'auto', position:'relative' }}>
-            <Box sx={{ mb:4 }}>
+        <Box sx={{ display: 'flex', flexGrow: 1, overflow: 'hidden' }}>
+          {/* Left side panel */}
+          <Box sx={{ width: 300, bgcolor: '#f5f5f5', p: 2, overflowY: 'auto', position: 'relative' }}>
+            <Box sx={{ mb: 4 }}>
               <Button
                 variant="contained"
                 component="label"
@@ -251,7 +253,7 @@ function App() {
                 color="primary"
                 fullWidth
                 disabled={loading}
-                sx={{ fontSize:'13px', marginBottom:-1, marginTop:0.5 }}
+                sx={{ fontSize: '13px', marginBottom: -1, marginTop: 0.5,backgroundColor: 'black'  }}
               >
                 {tabValue === 0
                   ? 'Upload .xyz or .pcd file'
@@ -264,7 +266,7 @@ function App() {
                 />
               </Button>
               {loading && (
-                <Box sx={{ mt:2 }}>
+                <Box sx={{ mt: 2 }}>
                   <LinearProgress variant="determinate" value={progress} />
                   <Typography variant="body2" color="textSecondary">
                     Loading... {Math.round(progress)}%
@@ -275,23 +277,23 @@ function App() {
 
             <Divider />
 
-            <Box sx={{ mt:4 }}>
+            <Box sx={{ mt: 4 }}>
               <Typography variant="h6" gutterBottom>
                 Operating Instructions
               </Typography>
               <Typography variant="body2" color="textSecondary">
-                 ========= 3D Viewer ========= <br /><br />
-                1. Right-click & drag => pan <br /><br />
-                2. Left-click => rotate <br /><br />
-                3. Wheel => zoom <br /><br />
-                - ========= GIS Map ========= <br /><br />
-                1. Wheel => zoom <br /><br />
-                2. Left-click & drag => pan <br /><br />
-                2. Time-series animation is available when time data is included in the GIS file(top-right panel) <br /><br />
+                ======== 3D Viewer ======== <br /><br />
+                1. Right-click & drag => pan <br />
+                2. Left-click & drag => rotate <br />
+                3. Mouse wheel => zoom <br /><br />
+                ======== GIS Map ======== <br /><br />
+                1. Mouse wheel => zoom <br />
+                2. Left-click & drag => pan <br />
+                3. Time-series animation is available if "time" data is in GeoJSON (controls top-right on the map) <br /><br />
               </Typography>
             </Box>
 
-            <Box sx={{ position:'absolute', bottom:10, left:10, right:10 }}>
+            <Box sx={{ position: 'absolute', bottom: 10, left: 10, right: 10 }}>
               <Button
                 variant="outlined"
                 color="secondary"
@@ -309,67 +311,89 @@ function App() {
             </Box>
           </Box>
 
-          <Box sx={{ flexGrow:1, display:'flex', flexDirection:'column' }}>
+          {/* Right side: Tab content */}
+          <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
             <Tabs
               value={tabValue}
               onChange={handleTabChange}
-              indicatorColor="primary"
-              textColor="primary"
+              sx={{
+                "& .MuiTabs-indicator": {
+                  backgroundColor: "black"
+                },
+                "& .MuiTab-root": {
+                  color: "black",
+                  "&.Mui-selected": {
+                    color: "black"
+                  }
+                }
+              }}
             >
               <Tab label="3D Point Cloud Viewer" />
               <Tab label="GIS Map Viewer" />
             </Tabs>
 
-            <Box sx={{ flexGrow:1, position:'relative' }}>
-              {/* 3D Tab */}
-              {tabValue === 0 && (
-                <Box sx={{ width:'100%', height:'100%' }}>
-                  <ThreeDViewer
-                    ref={threeDViewerRef}
-                    pointClouds={pointCloud ? [pointCloud] : []}
-                    colorMode="height"
-                    settingsAppliedCount={0}
-                  />
-                  {loading && (
-                    <Box
-                      sx={{
-                        position:'absolute',
-                        top:'50%',
-                        left:'50%',
-                        transform:'translate(-50%,-50%)',
-                        display:'flex',
-                        alignItems:'center',
-                        color: 'white',
-                      }}
-                    >
-                      <CircularProgress color="inherit" />
-                      <Typography variant="h6" sx={{ ml:2 }}>
-                        Loading...
-                      </Typography>
-                    </Box>
-                  )}
-                </Box>
-              )}
+            <Box sx={{ flexGrow: 1, position: 'relative' }}>
+              {/* Keep 3DViewer mounted, just hide/show via display */}
+              <Box
+                sx={{
+                  display: tabValue === 0 ? 'block' : 'none',
+                  width: '100%',
+                  height: '100%',
+                }}
+              >
+                <ThreeDViewer
+                  ref={threeDViewerRef}
+                  pointClouds={pointCloud ? [pointCloud] : []}
+                  colorMode="height"
+                  settingsAppliedCount={0}
+                />
+                {loading && (
+                  <Box
+                    sx={{
+                      position: 'absolute',
+                      top: '50%',
+                      left: '50%',
+                      transform: 'translate(-50%,-50%)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      color: 'white',
+                    }}
+                  >
+                    <CircularProgress color="inherit" />
+                    <Typography variant="h6" sx={{ ml: 2 }}>
+                      Loading...
+                    </Typography>
+                  </Box>
+                )}
+              </Box>
 
-              {/* GIS Tab */}
-              {tabValue === 1 && (
-                <Box sx={{ width:'100%', height:'100%' }}>
-                  <TimeSeriesMapViewer
-                    geoJSONData={geoJSONData}
-                    selectedTags={[]}
-                  />
-                </Box>
-              )}
+              {/* Keep GIS MapViewer mounted, just hide/show via display */}
+              <Box
+                sx={{
+                  display: tabValue === 1 ? 'block' : 'none',
+                  width: '100%',
+                  height: '100%',
+                }}
+              >
+                <TimeSeriesMapViewer
+                  geoJSONData={geoJSONData}
+                  selectedTags={[]}
+                />
+              </Box>
             </Box>
           </Box>
         </Box>
 
-        <Box sx={{ height:150, bgcolor:'#f0f0f0', p:2, overflowY:'auto' }}>
+        {/* Uploaded files info */}
+        <Box sx={{ height: 150, bgcolor: '#f0f0f0', p: 2, overflowY: 'auto' }}>
           <Typography variant="h6" gutterBottom>
             Uploaded files info
           </Typography>
           {(!uploadedFiles.pointCloud && !uploadedFiles.gisData) ? (
-            <Alert severity="info">No files have been uploaded.</Alert>
+            <Alert severity="info"   sx={{ 
+              backgroundColor: 'rgba(245,245,245,0.8)',
+              color: 'black' 
+            }}>No files have been uploaded.</Alert>
           ) : (
             <TableContainer component={Paper}>
               <Table size="small">
@@ -414,12 +438,12 @@ function App() {
           open={openSnackbar}
           autoHideDuration={6000}
           onClose={() => setOpenSnackbar(false)}
-          anchorOrigin={{ vertical:'bottom', horizontal:'center' }}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
         >
           <Alert
             severity="warning"
             onClose={() => setOpenSnackbar(false)}
-            sx={{ width:'100%' }}
+            sx={{ width: '100%' }}
           >
             {snackbarMessage}
           </Alert>

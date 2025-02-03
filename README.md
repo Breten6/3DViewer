@@ -58,7 +58,7 @@ PORT=3000                 # server port
 
 ## 4. Development Mode
 ```bash
-# Start development server
+# Start the development server
 npm start
 
 # Visit URL
@@ -75,22 +75,21 @@ http://localhost:3000/
 
 4. Use data in <gis> fold to test GIS Viewer
 
-    - Use "TimeSeries" prefixed data to test time-series tnimation 
+    - Use "TimeSeries" prefixed data to test time-series animation 
 
 ## 8. Troubleshooting
 
 ### FAQ 1: WebGL cannot be initialized
-` ` `
-Solution:
+
+Solutions:
 1. Check your browser support: Visit https://get.webgl.org/ and https://caniuse.com/webgl2
 2. Update the graphics card driver
 3. Add parameters when starting Chrome:
 chrome --use-angle=gl-egl --ignore-gpu-blocklist
-` ` `
 
 ### Common problem 2: Large file parsing failure
 
-Tens of millions point size 3d point cloud files and GIS files larger than 50mb may not parse and render correctly. This is a known issue, and is actively investigating a permanent fix. In the meantime, please consider splitting large files as a temporary workaround.
+10-million+ point size 3d point cloud files and GIS files larger than 50mb may not parse and render correctly. This is a known issue and is actively investigating a permanent fix. In the meantime, please consider splitting large files as a temporary workaround.
 
 
 # 3D & GIS Viewer Design Document
@@ -214,7 +213,7 @@ Geometry Filter → Flattened Properties →  Key Selection
 
 ### 6.3 GIS Points Cluster
 - Apply Supercluster to avoid overlapping points markers
-- Merge points' popup, paginated popup content to avoid overflow
+- Merge points' popup, and paginated popup content to avoid overflow
 
 ### 6.4 Information Panel
 - File metadata table
@@ -226,7 +225,7 @@ Geometry Filter → Flattened Properties →  Key Selection
 
 1. **Data Processing**:
 - Binary compressed format support (PCD)
-- Avoid overlapping points markers using Supercluster
+- Avoid overlapping point markers using Supercluster
 - Flatten nested properties for filter performance
 
 2. **Rendering**:

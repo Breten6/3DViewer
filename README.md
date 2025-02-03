@@ -1,4 +1,4 @@
-# 3D Point Cloud/ GIS Viewer Platform 🌍✨
+# 3D Point Cloud/ GIS Map Viewer Platform 🌍✨
 
 **Real-time 3D point cloud visualization with integrated 2D GIS capabilities**
 
@@ -9,7 +9,7 @@
 - 🎨 **Dynamic visual controls** for point size, time-series animation, and properties filtering
 
 ## Live Demo
-[![Open in StackBlitz](https://developer.stackblitz.com/img/open_in_stackblitz.svg)](https://breten6.github.io/3DViewer/)  
+[![3D Point Cloud & GIS Map Viewer](https://developer.stackblitz.com/img/open_in_stackblitz.svg)](https://breten6.github.io/3DViewer/)  
 *Requires WebGL 2.0 compatible browser*
 
 ## Tech Stack

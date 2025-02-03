@@ -9,7 +9,8 @@
 - 🎨 **Dynamic visual controls** for point size, time-series animation, and properties filtering
 
 ## Live Demo
-[![3D Point Cloud & GIS Map Viewer](https://developer.stackblitz.com/img/open_in_stackblitz.svg)](https://breten6.github.io/3DViewer/)  
+
+https://breten6.github.io/3DViewer/
 *Requires WebGL 2.0 compatible browser*
 
 ## Tech Stack

@@ -242,7 +242,7 @@ function App() {
           </Toolbar>
         </AppBar>
 
-        <Box sx={{ display: 'flex', flexGrow: 1, overflow: 'hidden' }}>
+        <Box sx={{ display: 'flex', flexGrow: 1, overflow: 'hidden', minHeight: 0  }}>
           {/* Left side panel */}
           <Box sx={{ width: 300, bgcolor: '#f5f5f5', p: 2, overflowY: 'auto', position: 'relative' }}>
             <Box sx={{ mb: 4 }}>

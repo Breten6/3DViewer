@@ -1,4 +1,25 @@
+# 3D Point Cloud/ GIS Viewer Platform 🌍✨
 
+**Real-time 3D point cloud visualization with integrated 2D GIS capabilities**
+
+## Key Features
+- 🚀 **1M+ points rendering** over 30 FPS using WebGL 2.0 optimizations
+- 🌐 **Hybrid 2D/3D view** synchronization between Leaflet maps and Three.js scenes
+- ⚡ **Web Worker-powered** PCD/XYZ file parser handling 150MB+ datasets
+- 🎨 **Dynamic visual controls** for point size, time-series animation, and properties filtering
+
+## Live Demo
+[![Open in StackBlitz](https://developer.stackblitz.com/img/open_in_stackblitz.svg)](https://breten6.github.io/3DViewer/)  
+*Requires WebGL 2.0 compatible browser*
+
+## Tech Stack
+| Category        | Technologies                                                                 |
+|-----------------|------------------------------------------------------------------------------|
+| **Core**        | React 18                                               |
+| **3D Engine**   | Three.js                           |
+| **GIS**         | Leaflet  • Supercluster                                     |
+| **Processing** | Web Workers • LZF                                         |
+| **UI**          | MUI                                  |
 
 # Local Deployment Guide
 

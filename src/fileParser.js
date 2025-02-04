@@ -10,7 +10,7 @@ export const parseFile = (
   ) => {
     return new Promise((resolve, reject) => {
       // create worker
-      const worker = new Worker(new URL('./fileParser.worker.js', import.meta.url));
+      const worker = new Worker(new URL('./worker/fileParser.worker.js', import.meta.url));
   
       // handle worker return
       const handleMessage = (e) => {

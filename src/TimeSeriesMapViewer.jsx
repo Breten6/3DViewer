@@ -11,9 +11,9 @@ import {
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import Supercluster from 'supercluster';
-import FitBounds from './FitBounds';
-import ClusterPopupContent from './ClusterPopupContent';
-import MarkerPopupContent from './MarkerPopupContent';
+import FitBounds from './components/FitBounds';
+import ClusterPopupContent from './components/ClusterPopupContent';
+import MarkerPopupContent from './components/MarkerPopupContent';
 import ReactDOM from 'react-dom/client';
 
 import {

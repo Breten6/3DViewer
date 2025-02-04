@@ -2,7 +2,7 @@
 import React, { useState, useCallback, useRef } from 'react';
 import ThreeDViewer from './ThreeDViewer';
 import TimeSeriesMapViewer from './TimeSeriesMapViewer';
-import './App.css';
+import './style/App.css';
 import 'leaflet/dist/leaflet.css';
 
 import {

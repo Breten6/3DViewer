@@ -158,15 +158,12 @@ Supercluster → Render Markers/Clusters
 
 ### 4.2 WebGL Optimization
 - BufferGeometry for efficient rendering
-- Frustum culling
-- Size-attenuated points
 - Single draw calls for point clouds
 
 ### 4.3 GIS Optimization
 - Supercluster for real-time clustering
 - Memoized filtering (useMemo)
 - Layer recycling with cleanup
-- Viewport-based rendering
 
 ### 4.4 Performance Metrics  
 | Metric                  | Target      | Measurement Method       |  

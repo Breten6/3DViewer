@@ -318,7 +318,7 @@ function TimeSeriesMapViewer({ geoJSONData, selectedTags = [] }) {
     return new Supercluster({ radius: 75, maxZoom: 20 }).load(
       pointFeatures.map((f) => ({
         type: 'Feature',
-        properties: { cluster: false, ...f.properties },
+        properties: { ...f.properties },
         geometry: { type: 'Point', coordinates: f.geometry.coordinates },
       }))
     );

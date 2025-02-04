@@ -9,10 +9,10 @@ const ClusterPopupContent = ({
   const [currentPage, setCurrentPage] = useState(1);
   const scrollContainerRef = useRef(null);
   
-  // get totol page number
+  // get total page number
   const totalPages = Math.ceil(leaves.length / maxMarkers);
   
-  // cur page display
+  // current page display
   const displayedLeaves = leaves.slice(
     (currentPage - 1) * maxMarkers,
     currentPage * maxMarkers
@@ -54,12 +54,38 @@ const ClusterPopupContent = ({
           const geometry = marker.geometry || {};
           
           let lat = 'N/A', lng = 'N/A';
-          if (geometry.type === 'Point' && Array.isArray(geometry.coordinates)) {
+          if (
+            geometry.type === 'Point' &&
+            Array.isArray(geometry.coordinates)
+          ) {
             [lng, lat] = geometry.coordinates;
           }
 
           const { time, ...restProps } = properties;
           const timeValue = time != null ? time : 'N/A';
+
+          const mappedProps = Object.entries(restProps).map(([k, v]) => {
+            let displayVal =
+              v == null
+                ? 'N/A'
+                : typeof v === 'object'
+                ? JSON.stringify(v)
+                : String(v);
+
+            if (displayVal.length > 200) {
+              displayVal = displayVal.slice(0, 200) + '...';
+            }
+
+            if (displayVal === 'N/A') return null;
+
+            return (
+              <div key={k} style={{ marginLeft: 6 }}>
+                <b>{k}:</b> {displayVal}
+              </div>
+            );
+          });
+
+          const filteredProps = mappedProps.filter(Boolean);
 
           return (
             <div
@@ -70,37 +96,26 @@ const ClusterPopupContent = ({
                 borderBottom: '1px dashed #ccc',
               }}
             >
-              <div>
-                <b>Coordinate:</b> {typeof lat === 'number' ? `${lat}, ${lng}` : 'N/A'}
-              </div>
-              <div>
-                <b>Time:</b> {timeValue}
-              </div>
+              {typeof lat === 'number' && typeof lng === 'number' && (
+                <div>
+                  <b>Coordinate:</b> {`${lat}, ${lng}`}
+                </div>
+              )}
+
+              {timeValue !== 'N/A' && (
+                <div>
+                  <b>Time:</b> {timeValue}
+                </div>
+              )}
+
               <div style={{ marginLeft: 6, marginTop: 4 }}>
                 <b>Properties:</b>
-                {Object.keys(restProps).length === 0 ? (
+                {filteredProps.length === 0 ? (
                   <div style={{ marginLeft: 6 }}>
                     <i>No more props</i>
                   </div>
                 ) : (
-                  Object.entries(restProps).map(([k, v]) => {
-                    let displayVal =
-                      v == null
-                        ? 'N/A'
-                        : typeof v === 'object'
-                        ? JSON.stringify(v)
-                        : String(v);
-
-                    if (displayVal.length > 200) {
-                      displayVal = displayVal.slice(0, 200) + '...';
-                    }
-
-                    return (
-                      <div key={k} style={{ marginLeft: 6 }}>
-                        <b>{k}:</b> {displayVal}
-                      </div>
-                    );
-                  })
+                  filteredProps
                 )}
               </div>
             </div>
